@@ -12,7 +12,28 @@ local ScriptView = DocView:extend()
 function ScriptView:draw_line_gutter() return end
 
 
-local old_draw_line_text = ScriptView.draw_line_text
+function ScriptView:get_col_x_offset(line, col)
+  local default_font = self:get_font()
+  local column = 1
+  local xoffset = 0
+  for _, type, text in self.doc.highlighter:each_token(line) do
+    local font = style.syntax_fonts[type] or default_font
+     if type == "character" then
+			text = text:match "^%s*@*%s*(.-)%s*$"
+			local w = font:get_width_subpixel(text)
+			xoffset = xoffset + (self.size.x * font:subpixel_scale() - w) / 2
+    end
+    for char in common.utf8_chars(text) do
+      if column == col then
+        return xoffset / font:subpixel_scale()
+      end
+      xoffset = xoffset + font:get_width_subpixel(char)
+      column = column + #char
+    end
+  end
+
+  return xoffset / default_font:subpixel_scale()
+end
 
 function ScriptView:draw_line_text(idx, x, y)
   local default_font = self:get_font()
@@ -22,7 +43,6 @@ function ScriptView:draw_line_text(idx, x, y)
     local color = style.syntax[type]
     local font = style.syntax_fonts[type] or default_font
     local align = "left"
-    local x_to_use = tx + 1
     if type == "character" then
 			align = "center"
 			text = text:match "^%s*@*%s*(.-)%s*$"
@@ -34,8 +54,7 @@ function ScriptView:draw_line_text(idx, x, y)
     end
     
     core.log_quiet(type)
-    tx = common.draw_text(font, color, text, align, x_to_use, ty, self.size.x + vx - style.padding.x * 20, self:get_line_height())
-    ::continue::
+    tx = common.draw_text(font, color, text, align, tx, ty, self.size.x, self:get_line_height())
   end
 end
 
