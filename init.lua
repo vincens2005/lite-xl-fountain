@@ -22,7 +22,30 @@ function ScriptView:new(doc)
 	config.plugins.minimap.enabled = false
 end
 
+local old_name = ScriptView.get_name
+function ScriptView:get_name()
+	return old_name(self):match "(.-)%.fountain"
+end
+
 function ScriptView.draw_line_gutter() return end
+
+local function offset_offset(self, type, font, text, xoffset, i, scale)
+	if clean_patterns[type] ~= nil then
+		text = text:match(clean_patterns[type])
+	end
+		if type == "character" or type == "center" then
+		local w = font:get_width_subpixel(text)
+		xoffset = xoffset + (self.size.x * scale - w) / 2
+	end
+	if type == "transition" then
+		local w = font:get_width_subpixel(text)
+		xoffset = xoffset + ((self.size.x - style.padding.x * 15) * scale - w)
+	end
+	if type == "normal" and i == 1 then
+		xoffset = xoffset + (style.padding.x * 10) * scale
+	end
+	return xoffset
+end
 
 function ScriptView:get_col_x_offset(line, col)
   local default_font = self:get_font()
@@ -31,21 +54,7 @@ function ScriptView:get_col_x_offset(line, col)
   local x, y = self:get_line_screen_position(1)
   for i, type, text in self.doc.highlighter:each_token(line) do
     local font = style.syntax_fonts[type] or default_font
-    if clean_patterns[type] ~= nil then
-			text = text:match(clean_patterns[type])
-		end
-     if type == "character" or type == "center" then
-			local w = font:get_width_subpixel(text)
-			xoffset = xoffset + (self.size.x * font:subpixel_scale() - w) / 2
-    end
-    if type == "transition" then
-			local w = font:get_width_subpixel(text)
-			xoffset = xoffset + ((self.size.x - style.padding.x * 15) * font:subpixel_scale() - w)
-    end
-    if type == "normal" and i == 1 then
-			xoffset = xoffset + (style.padding.x * 10) * font:subpixel_scale()
-    end
-    
+    xoffset = offset_offset(self, type, font, text, xoffset, i, font:subpixel_scale())
     for char in common.utf8_chars(text) do
       if column == col then
         return xoffset / font:subpixel_scale()
@@ -56,6 +65,28 @@ function ScriptView:get_col_x_offset(line, col)
   end
 
   return xoffset / default_font:subpixel_scale()
+end
+
+function ScriptView:get_x_offset_col(line, x)
+  local line_text = self.doc.lines[line]
+
+  local xoffset, last_i, i = 0, 1, 1
+  local default_font = self:get_font()
+  for i, type, text in self.doc.highlighter:each_token(line) do
+    local font = style.syntax_fonts[type] or default_font
+    xoffset = offset_offset(self, type, font, text, xoffset, i, 1)
+    for char in common.utf8_chars(text) do
+      local w = font:get_width(char)
+      if xoffset >= x then
+        return (xoffset - x > w / 2) and last_i or i
+      end
+      xoffset = xoffset + w
+      last_i = i
+      i = i + #char
+    end
+  end
+
+  return #line_text
 end
 
 function ScriptView:draw_line_text(idx, x, y)
@@ -94,7 +125,7 @@ local function open_script_view()
 	node:add_view(ScriptView(core.active_view.doc))
 end
 
-command.add(nil, {
+command.add(DocView, {
 	["script:open"] = open_script_view
 })
 
