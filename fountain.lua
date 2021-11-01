@@ -7,14 +7,14 @@ syntax.add {
 		{ pattern = {"_", "_"}, type = "underline" },
 		{ pattern = {"%*", "%*"}, type = "italic" },
 		{ pattern = {"%*%*", "%*%*"}, type = "bold" },
-		{ regex = "^\\s*[iIeE][nNxX][tT].*", type = "heading" },
+		{ pattern = "^===+", type = "linebreak" },
+		{ regex = "^\\s*[iIeE][nNxX][tT].*", type = "heading" }, -- yes, this _will_ detect "ixt." and "ent." but I don't care
 		{ regex = "^\\s*\\..*", type = "heading" },
-		{ regex = "^\\s*[A-Z\\s]+\\s+TO:", type = "transition"},
+		{ regex = "^\\s*[A-Z\\s]*\\s+TO:", type = "transition"},
 		{ regex = "^\\s*>[^<]*$", type = "transition" },
 		{ regex = {"^\\s*[A-Z\\s\\^]+\\s*(\\(.*?\\))?\\s*\n", "^\n"}, type = "character" },
 		{ regex = {"^\\s*@", "^\n"}, type = "character" },
-		-- end todo
-		
+
 	},
 	symbols = {}
 }

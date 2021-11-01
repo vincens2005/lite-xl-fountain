@@ -16,12 +16,17 @@ function ScriptView:get_col_x_offset(line, col)
   local default_font = self:get_font()
   local column = 1
   local xoffset = 0
+  local x, y = self:get_line_screen_position(1)
   for _, type, text in self.doc.highlighter:each_token(line) do
     local font = style.syntax_fonts[type] or default_font
      if type == "character" then
 			text = text:match "^%s*@*%s*(.-)%s*$"
 			local w = font:get_width_subpixel(text)
 			xoffset = xoffset + (self.size.x * font:subpixel_scale() - w) / 2
+    end
+    if type == "transition" then
+			local w = font:get_width_subpixel(text)
+			xoffset = xoffset + (self.size.x - w) * font:subpixel_scale() - style.padding.x * 14 / font:subpixel_scale() -- please don't criticise this
     end
     for char in common.utf8_chars(text) do
       if column == col then
@@ -38,7 +43,6 @@ end
 function ScriptView:draw_line_text(idx, x, y)
   local default_font = self:get_font()
   local tx, ty = x, y + self:get_line_text_y_offset()
-  local vx, vy = self:get_content_offset()
   for _, type, text in self.doc.highlighter:each_token(idx) do
     local color = style.syntax[type]
     local font = style.syntax_fonts[type] or default_font
@@ -47,13 +51,13 @@ function ScriptView:draw_line_text(idx, x, y)
 			align = "center"
 			text = text:match "^%s*@*%s*(.-)%s*$"
     end
-    
+
     if type == "transition" then
 			align = "right"
 			text = text:match "^%s*>*%s*(.-)%s*$"
+			tx = tx - style.padding.x * 15
     end
-    
-    core.log_quiet(type)
+
     tx = common.draw_text(font, color, text, align, tx, ty, self.size.x, self:get_line_height())
   end
 end
