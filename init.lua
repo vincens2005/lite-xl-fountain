@@ -9,7 +9,7 @@ require "plugins.fountain.fountain"
 
 local ScriptView = DocView:extend()
 
-function ScriptView:draw_line_gutter() return end
+function ScriptView.draw_line_gutter() return end
 
 
 function ScriptView:get_col_x_offset(line, col)
@@ -25,8 +25,9 @@ function ScriptView:get_col_x_offset(line, col)
 			xoffset = xoffset + (self.size.x * font:subpixel_scale() - w) / 2
     end
     if type == "transition" then
+			text = text:match "^%s*>*%s*(.-)%s*$"
 			local w = font:get_width_subpixel(text)
-			xoffset = xoffset + (self.size.x - w) * font:subpixel_scale() - style.padding.x * 14 / font:subpixel_scale() -- please don't criticise this
+			xoffset = xoffset + ((self.size.x - style.padding.x * 15) * font:subpixel_scale() - w)
     end
     for char in common.utf8_chars(text) do
       if column == col then
