@@ -25,12 +25,12 @@ function ScriptView:draw_line_text(idx, x, y)
     local x_to_use = tx + 1
     if type == "character" then
 			align = "center"
-			x_to_use = 0
+			text = text:match "^%s*@*%s*(.-)%s*$"
     end
     
     if type == "transition" then
 			align = "right"
-			--x_to_use = 0
+			text = text:match "^%s*>*%s*(.-)%s*$"
     end
     
     core.log_quiet(type)
