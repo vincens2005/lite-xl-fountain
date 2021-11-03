@@ -7,12 +7,17 @@ local common = require "core.common"
 local config = require "core.config"
 require "plugins.fountain.fountain"
 
-local clean_patterns = {
-	center = "^%s*>*%s*(.-)%s*<%s*$",
-	character = "^%s*@*%s*(.-)%s*$",
-	transition = "^%s*>*%s*(.-)%s*$",
-	heading = "^%s*%.?%s*(.-)%s*$"
-}
+
+local function clean_markup(text, type)
+	local clean_patterns = {
+		center = "^%s*>*%s*(.-)%s*<%s*$",
+		character = "^%s*@*%s*(.-)%s*$",
+		transition = "^%s*>*%s*(.-)%s*$",
+		heading = "^%s*%.?%s*(.-)%s*$"
+	}
+	if type == nil then return text end
+	return text:match(clean_patterns[type] or ".*")
+end
 
 local ScriptView = DocView:extend()
 
@@ -55,10 +60,8 @@ ScriptView.translate = { -- TODO: make this work once the linewrap PR gets merge
 }
 
 local function offset_offset(self, type, font, text, xoffset, i, scale)
-	if clean_patterns[type] ~= nil then
-		text = text:match(clean_patterns[type])
-	end
-		if type == "character" or type == "center" then
+	text = clean_markup(text, type)
+	if type == "character" or type == "center" then
 		local w = font:get_width_subpixel(text)
 		xoffset = xoffset + (self.size.x * scale - w) / 2
 	end
@@ -79,6 +82,7 @@ function ScriptView:get_col_x_offset(line, col)
   for i, type, text in self.doc.highlighter:each_token(line) do
     local font = style.syntax_fonts[type] or default_font
     xoffset = offset_offset(self, type, font, text, xoffset, i, font:subpixel_scale())
+    text = clean_markup(text, type)
     for char in common.utf8_chars(text) do
       if column == col then
         return xoffset / font:subpixel_scale()
@@ -103,9 +107,7 @@ function ScriptView:draw_line_text(idx, x, y)
     local color = style.syntax[type]
     local font = style.syntax_fonts[type] or default_font
     local align = "left"
-		if clean_patterns[type] ~= nil then
-			text = text:match(clean_patterns[type])
-		end
+		text = clean_markup(text, type)
     if type == "character" then
 			align = "center"
     end
@@ -127,6 +129,36 @@ function ScriptView:draw_line_text(idx, x, y)
   end
 end
 
+function ScriptView:set_current_block_type(type)
+	local idx, _a, _b, _c = self.doc:get_selection(true)
+
+	local current_type = "normal"
+	for i, type, _ in self.doc.highlighter:each_token(idx) do
+		if i == 1 then
+			current_type = type
+			break
+		end
+	end
+	core.log(current_type)
+	if type == current_type then return end
+	local text = clean_markup(self.doc.lines[idx])
+
+	local prefixes = {
+		character = "@",
+		heading = ".",
+		transition = ">",
+		center = ">"
+	}
+
+	local postfixes = {
+		center = "<"
+	}
+
+	self.doc:remove(idx, 1, idx, #self.doc.lines[idx])
+	self.doc:insert(idx, 1, (prefixes[type] or "") .. text .. (postfixes[type] or ""))
+	self.doc:remove(idx, #self.doc.lines[idx], idx + 1,#self.doc.lines[idx + 1])
+end
+
 local function open_script_view()
 	local node = core.root_view:get_active_node()
 	node:add_view(ScriptView(core.active_view.doc))
@@ -134,6 +166,12 @@ end
 
 command.add(DocView, {
 	["script:open"] = open_script_view
+})
+
+command.add(ScriptView, {
+	["script:character"] = function()
+		core.active_view:set_current_block_type("character")
+	end
 })
 
 return ScriptView
