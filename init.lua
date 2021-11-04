@@ -5,6 +5,7 @@ local core = require "core"
 local style = require "core.style"
 local common = require "core.common"
 local config = require "core.config"
+local tokenizer = require "core.tokenizer"
 require "plugins.fountain.fountain"
 
 
@@ -13,10 +14,12 @@ local function clean_markup(text, type)
 		center = "^%s*>*%s*(.-)%s*<%s*$",
 		character = "^%s*@*%s*(.-)%s*$",
 		transition = "^%s*>*%s*(.-)%s*$",
-		heading = "^%s*%.?%s*(.-)%s*$"
+		heading = "^%s*%.?%s*(.-)%s*$",
+		normal = "^%s*!*%s*(.-)%s*$",
+		lyrics = "^%s*~%s*(.-)%s*$"
 	}
 	if type == nil then return text end
-	return text:match(clean_patterns[type] or ".*")
+	return text:match(clean_patterns[type] or ".*") or ""
 end
 
 local ScriptView = DocView:extend()
@@ -120,7 +123,7 @@ function ScriptView:draw_line_text(idx, x, y)
 			align = "right"
 			tx = tx - style.padding.x * 15
     end
-
+		-- TODO: italic font for lyrics
     if type == "normal" and i == 1 then
 			tx = tx + style.padding.x * 10
     end
@@ -133,30 +136,35 @@ function ScriptView:set_current_block_type(type)
 	local idx, _a, _b, _c = self.doc:get_selection(true)
 
 	local current_type = "normal"
-	for i, type, _ in self.doc.highlighter:each_token(idx) do
+	for i, ty, _ in self.doc.highlighter:each_token(idx) do
 		if i == 1 then
-			current_type = type
+			current_type = ty
 			break
 		end
 	end
-	core.log(current_type)
 	if type == current_type then return end
-	local text = clean_markup(self.doc.lines[idx])
+	local text = clean_markup(self.doc.lines[idx], current_type)
 
 	local prefixes = {
 		character = "@",
 		heading = ".",
 		transition = ">",
-		center = ">"
+		center = ">",
+		normal = "!",
+		lyrics = "~"
 	}
 
 	local postfixes = {
 		center = "<"
 	}
 
+	local new_text = text
+	if tokenizer.tokenize(self.doc.syntax, text)[1] ~= type then
+		new_text = (prefixes[type] or "") .. text .. (postfixes[type] or "")
+	end
 	self.doc:remove(idx, 1, idx, #self.doc.lines[idx])
-	self.doc:insert(idx, 1, (prefixes[type] or "") .. text .. (postfixes[type] or ""))
-	self.doc:remove(idx, #self.doc.lines[idx], idx + 1,#self.doc.lines[idx + 1])
+	self.doc:insert(idx, 1, new_text)
+	--self.doc:remove(idx, #self.doc.lines[idx], idx + 1,#self.doc.lines[idx + 1])
 end
 
 local function open_script_view()
@@ -171,7 +179,22 @@ command.add(DocView, {
 command.add(ScriptView, {
 	["script:character"] = function()
 		core.active_view:set_current_block_type("character")
-	end
+	end,
+	["script:center"] = function()
+		core.active_view:set_current_block_type("center")
+	end,
+	["script:heading"] = function()
+		core.active_view:set_current_block_type("heading")
+	end,
+	["script:transition"] = function()
+		core.active_view:set_current_block_type("transition")
+	end,
+	["script:action"] = function()
+		core.active_view:set_current_block_type("normal")
+	end,
+	["script:lyrics"] = function()
+		core.active_view:set_current_block_type("lyrics")
+	end,
 })
 
 return ScriptView

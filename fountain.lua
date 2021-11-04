@@ -4,7 +4,8 @@ syntax.add {
 	files = {"%.fountain$"},
 	patterns = {
 		{ pattern = {"/%*", "%*/"}, type = "comment" }, -- this is the boneyard
-		{ pattern = "^%s*!.+", type = "normal"},
+		{ regex = "^\\s*!\\s*.+", type = "normal"},
+		{ regex = "^\\s*~\\s*.+", type = "lyrics" },
 		{ pattern = {"%(", "%)"}, type = "parenthetical" },
 		{ pattern = {"_", "_"}, type = "underline" },
 		{ pattern = {"%*", "%*"}, type = "italic" },
