@@ -6,17 +6,19 @@ local style = require "core.style"
 local common = require "core.common"
 local config = require "core.config"
 local tokenizer = require "core.tokenizer"
+local keymap = require "core.keymap"
+--local autocomplete = require "plugins.autocomplete"
 require "plugins.fountain.fountain"
 
 
 local function clean_markup(text, type)
 	local clean_patterns = {
-		center = "^%s*>*%s*(.-)%s*<%s*$",
-		character = "^%s*@*%s*(.-)%s*$",
-		transition = "^%s*>*%s*(.-)%s*$",
-		heading = "^%s*%.?%s*(.-)%s*$",
-		normal = "^%s*!*%s*(.-)%s*$",
-		lyrics = "^%s*~%s*(.-)%s*$"
+		center = "^%s*>*%s*(.-%s*)<%s*$",
+		character = "^%s*@*%s*(.-%s*)$",
+		transition = "^%s*>*%s*(.-%s*)$",
+		heading = "^%s*%.?%s*(.-%s*)$",
+		normal = "^%s*!*%s*(.-%s*)$",
+		lyrics = "^%s*~%s*(.-%s*)$"
 	}
 	if type == nil then return text end
 	return text:match(clean_patterns[type] or ".*") or ""
@@ -79,69 +81,79 @@ local function offset_offset(self, type, font, text, xoffset, i, scale)
 end
 
 function ScriptView:get_col_x_offset(line, col)
-  local default_font = self:get_font()
-  local column = 1
-  local xoffset = 0
-  for i, type, text in self.doc.highlighter:each_token(line) do
-    local font = style.syntax_fonts[type] or default_font
-    xoffset = offset_offset(self, type, font, text, xoffset, i, font:subpixel_scale())
-    text = clean_markup(text, type)
-    for char in common.utf8_chars(text) do
-      if column == col then
-        return xoffset / font:subpixel_scale()
-      end
-      xoffset = xoffset + font:get_width_subpixel(char)
-      column = column + #char
-    end
-  end
+	local default_font = self:get_font()
+	local column = 1
+	local xoffset = 0
+	for i, type, text in self.doc.highlighter:each_token(line) do
+		local font = style.syntax_fonts[type] or default_font
+		xoffset = offset_offset(self, type, font, text, xoffset, i, font:subpixel_scale())
+		text = clean_markup(text, type)
+		for char in common.utf8_chars(text) do
+			if column == col then
+				return xoffset / font:subpixel_scale()
+			end
+			xoffset = xoffset + font:get_width_subpixel(char)
+			column = column + #char
+		end
+	end
 
-  return xoffset / default_font:subpixel_scale()
+	return xoffset / default_font:subpixel_scale()
 end
 
 function ScriptView:get_x_offset_col(line, x)
-  local line_text = self.doc.lines[line]
-  return #line_text -- I am literally a genius
+	local line_text = self.doc.lines[line]
+	return #line_text -- I am literally a genius
 end
 
-function ScriptView:draw_line_text(idx, x, y)
-  local default_font = self:get_font()
-  local tx, ty = x, y + self:get_line_text_y_offset()
-  for i, type, text in self.doc.highlighter:each_token(idx) do
-    local color = style.syntax[type]
-    local font = style.syntax_fonts[type] or default_font
-    local align = "left"
-		text = clean_markup(text, type)
-    if type == "character" then
-			align = "center"
-    end
-
-		if type == "center" then
-			align = type
-		end
-
-    if type == "transition" then
-			align = "right"
-			tx = tx - style.padding.x * 15
-    end
-		-- TODO: italic font for lyrics
-    if type == "normal" and i == 1 then
-			tx = tx + style.padding.x * 10
-    end
-
-    tx = common.draw_text(font, color, text, align, tx, ty, self.size.x, self:get_line_height())
-  end
+function ScriptView:get_current_line()
+	local idx, _, _, _ = self.doc:get_selection(true)
+	return idx
 end
 
-function ScriptView:set_current_block_type(type)
-	local idx, _a, _b, _c = self.doc:get_selection(true)
-
-	local current_type = "normal"
+function ScriptView:get_type(idx)
+	local current_type = "character"
 	for i, ty, _ in self.doc.highlighter:each_token(idx) do
 		if i == 1 then
 			current_type = ty
 			break
 		end
 	end
+	return current_type
+end
+
+function ScriptView:draw_line_text(idx, x, y)
+	local default_font = self:get_font()
+	local tx, ty = x, y + self:get_line_text_y_offset()
+	for i, type, text in self.doc.highlighter:each_token(idx) do
+		local color = style.syntax[type]
+		local font = style.syntax_fonts[type] or default_font
+		local align = "left"
+		text = clean_markup(text, type)
+		if type == "character" then
+			align = "center"
+		end
+
+		if type == "center" then
+			align = type
+		end
+
+		if type == "transition" then
+			align = "right"
+			tx = tx - style.padding.x * 15
+		end
+		-- TODO: italic font for lyrics
+		if type == "normal" and i == 1 then
+			tx = tx + style.padding.x * 10
+		end
+
+		tx = common.draw_text(font, color, text, align, tx, ty, self.size.x, self:get_line_height())
+	end
+end
+
+function ScriptView:set_current_block_type(type)
+	local idx = self:get_current_line()
+	local current_type = self:get_type(idx)
+
 	if type == current_type then return end
 	local text = clean_markup(self.doc.lines[idx], current_type)
 
@@ -151,7 +163,7 @@ function ScriptView:set_current_block_type(type)
 		transition = ">",
 		center = ">",
 		normal = "!",
-		lyrics = "~"
+		lyrics = "~",
 	}
 
 	local postfixes = {
@@ -195,6 +207,21 @@ command.add(ScriptView, {
 	["script:lyrics"] = function()
 		core.active_view:set_current_block_type("lyrics")
 	end,
+	["script:clean"] = function()
+		core.active_view:set_current_block_type("nothing")
+	end
 })
+
+keymap.add {
+	["ctrl+1"] = "script:heading",
+	["ctrl+2"] = "script:action",
+	["ctrl+3"] = "script:character",
+	["ctrl+6"] = "script:transition",
+	["ctrl+7"] = "script:lyrics",
+	["ctrl+0"] = "script:clean"
+}
+
+-- so that autocomplete works
+setmetatable(ScriptView, DocView)
 
 return ScriptView
