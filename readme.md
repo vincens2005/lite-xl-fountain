@@ -6,6 +6,7 @@ The default shortcuts for changing the block type are similar to those in Celtx,
 
 ---
 Block Type | Shortcut
+---|---
 Heading | `ctrl+1`
 Action | `ctrl+2`
 Character / Dialogue | `ctrl+3`
