@@ -18,6 +18,6 @@ Default (based on content) | `ctrl+0`
 Of course, these can be remapped as you wish.
 
 I recommend using [afterwriting](https://afterwriting.com/), or [its CLI](https://github.com/ifrost/afterwriting-labs/blob/master/docs/clients.md) for final rendering of your script.
-You can also see [Brick & Steel](Brick & Steel.fountain) for an example of the fountain format; it was taken from the fountain spec's docs, and slightly modified by me during testing.
+You can also see [Brick & Steel](Brick_&_Steel.fountain) for an example of the fountain format; it was taken from the fountain spec's docs, and slightly modified by me during testing.
 
 For info on current limitations and stuff, see [todo.md](todo.md)
