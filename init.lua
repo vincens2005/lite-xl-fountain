@@ -27,13 +27,14 @@ end
 local ScriptView = DocView:extend()
 
 function ScriptView:new(doc)
+	doc.is_script = true
 	ScriptView.super.new(self, doc)
 	config.plugins.minimap.enabled = false
 end
 
 local old_name = ScriptView.get_name
 function ScriptView:get_name()
-	return (old_name(self):match "(.-)%.fountain") .. (self.doc:is_dirty() and "*" or "") or old_name(self)
+	return (old_name(self):match("(.-)%.fountain") or "unsaved") .. (self.doc:is_dirty() and "*" or "") or old_name(self)
 end
 
 function ScriptView.draw_line_gutter() return end
@@ -65,7 +66,6 @@ ScriptView.translate = { -- TODO: make this work once the linewrap PR gets merge
 }
 
 local function offset_offset(self, type, font, text, xoffset, i, scale)
-	text = clean_markup(text, type)
 	if type == "character" or type == "center" then
 		local w = font:get_width_subpixel(text)
 		xoffset = xoffset + (self.size.x * scale - w) / 2
@@ -87,7 +87,6 @@ function ScriptView:get_col_x_offset(line, col)
 	for i, type, text in self.doc.highlighter:each_token(line) do
 		local font = style.syntax_fonts[type] or default_font
 		xoffset = offset_offset(self, type, font, text, xoffset, i, font:subpixel_scale())
-		text = clean_markup(text, type)
 		for char in common.utf8_chars(text) do
 			if column == col then
 				return xoffset / font:subpixel_scale()
@@ -100,9 +99,10 @@ function ScriptView:get_col_x_offset(line, col)
 	return xoffset / default_font:subpixel_scale()
 end
 
+local old_x_offset_col = ScriptView.get_x_offset_col
 function ScriptView:get_x_offset_col(line, x)
-	local line_text = self.doc.lines[line]
-	return #line_text -- I am literally a genius
+	x = x - self:get_col_x_offset(line, 1)
+	return old_x_offset_col(self, line, x)
 end
 
 function ScriptView:get_current_line()
@@ -128,7 +128,6 @@ function ScriptView:draw_line_text(idx, x, y)
 		local color = style.syntax[type]
 		local font = style.syntax_fonts[type] or default_font
 		local align = "left"
-		text = clean_markup(text, type)
 		if type == "character" then
 			align = "center"
 		end
@@ -220,8 +219,5 @@ keymap.add {
 	["ctrl+7"] = "script:lyrics",
 	["ctrl+0"] = "script:clean"
 }
-
--- so that autocomplete works
-setmetatable(ScriptView, DocView)
 
 return ScriptView
