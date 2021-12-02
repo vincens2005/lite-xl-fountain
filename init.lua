@@ -1,5 +1,7 @@
 -- lite-xl 2.0
 local DocView = require "core.docview"
+local TreeView = require "plugins.treeview"
+local global_menu = require "plugins.contextmenu"
 local command = require "core.command"
 local core = require "core"
 local style = require "core.style"
@@ -26,6 +28,8 @@ end
 
 local ScriptView = DocView:extend()
 
+ScriptView.context = "session"
+
 function ScriptView:new(doc)
 	doc.is_script = true
 	ScriptView.super.new(self, doc)
@@ -34,7 +38,7 @@ end
 
 local old_name = ScriptView.get_name
 function ScriptView:get_name()
-	return (old_name(self):match("(.-)%.fountain") or "unsaved") .. (self.doc:is_dirty() and "*" or "") or old_name(self)
+	return (old_name(self):match("(.-)%.fountain") or old_name(self) or "unsaved") .. (self.doc:is_dirty() and "*" or "") or old_name(self)
 end
 
 function ScriptView.draw_line_gutter() return end
@@ -178,13 +182,16 @@ function ScriptView:set_current_block_type(type)
 	--self.doc:remove(idx, #self.doc.lines[idx], idx + 1,#self.doc.lines[idx + 1])
 end
 
-local function open_script_view()
-	local node = core.root_view:get_active_node()
-	node:add_view(ScriptView(core.active_view.doc))
+local function open_script_view(doc)
+	local view = ScriptView(doc)
+	local node = core.root_view:get_active_node_default()
+	node:add_view(view)
 end
 
 command.add(DocView, {
-	["script:open"] = open_script_view
+	["script:open"] = function()
+		open_script_view(core.active_view.doc)
+	end
 })
 
 command.add(ScriptView, {
@@ -211,6 +218,16 @@ command.add(ScriptView, {
 	end
 })
 
+command.add(nil, {
+	["treeview:open-as-script"] = function()
+		local doc_filename = core.normalize_to_project_dir(TreeView.hovered_item.abs_filename)
+		open_script_view(core.open_doc(doc_filename))
+	end,
+	["Script:new"] = function()
+		open_script_view(core.open_doc())
+	end
+})
+
 keymap.add {
 	["ctrl+1"] = "script:heading",
 	["ctrl+2"] = "script:action",
@@ -219,5 +236,23 @@ keymap.add {
 	["ctrl+7"] = "script:lyrics",
 	["ctrl+0"] = "script:clean"
 }
+
+local treeview_menu = TreeView.contextmenu
+treeview_menu:register(
+	function()
+		return TreeView.hovered_item and TreeView.hovered_item.type ~= "dir"
+	end,
+	{
+		{ text = "Open as Script", command = "treeview:open-as-script" },
+}
+)
+
+global_menu:register(
+	"core.docview",
+	{
+		{text = "Open as Script", command = "script:open"}
+	}
+)
+
 
 return ScriptView
